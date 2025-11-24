@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>FF‑Style Overworld – Multi Tilesheet Fixed</title>
+<style>
+html,body {
+  margin:0;
+  background:#061021;
+  color:#dfe7ef;
+  font-family: sans-serif;
+  overflow:hidden;
+}
+#game { background:#000; display:block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="game" width="800" height="600"></canvas>
+<script>
+//------------------------------------------------------------
+// CONFIG
+//------------------------------------------------------------
+const TILE_SIZE = 32;
+
+// 🔥 UPDATE THESE FILENAMES TO MATCH EXACT FILES IN YOUR FOLDER
+// These are example NebruVilada filenames — change them if yours differ.
+const TILESETS = [
+  { src:"grass.png", columns:8 },
+  { src:"desert.png", columns:8 },
+  { src:"ice.png", columns:8 },
+  { src:"lava.png", columns:8 },
+  { src:"mountain.png", columns:8 },
+  { src:"road.png", columns:8 },
+  { src:"swamp.png", columns:8 },
+  { src:"water_shallow.png", columns:8 },
+  { src:"water_deep.png", columns:8 }
+];
+
+//------------------------------------------------------------
+// LOAD TILESETS
+//------------------------------------------------------------
+let loadedSheets = [];
+let loadCount = 0;
+
+function loadTilesheets(startCallback){
+  TILESETS.forEach((ts, index) => {
+    let img = new Image();
+
+    img.onload = () => {
+      loadedSheets[index] = img;
+      loadCount++;
+      if(loadCount === TILESETS.length) startCallback();
+    };
+
+    img.onerror = () => {
+      console.error("FAILED LOADING TILESET:", ts.src);
+    };
+
+    img.src = ts.src; // IMPORTANT: Must match filename exactly
+  });
+}
+
+//------------------------------------------------------------
+// MAP EXAMPLE – You will replace this with your real map
+//------------------------------------------------------------
+// Tile = { s: tilesheetIndex, i: tileIndex }
+const MAP_W = 50;
+const MAP_H = 50;
+let map = new Array(MAP_W * MAP_H).fill(0).map(() => ({ s:0, i:0 }));
+
+//------------------------------------------------------------
+// PLAYER
+//------------------------------------------------------------
+let player = {
+  x: 10,
+  y: 10,
+  px: 10*TILE_SIZE,
+  py: 10*TILE_SIZE,
+  speed: 2,
+};
+
+//------------------------------------------------------------
+// CANVAS
+//------------------------------------------------------------
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+//------------------------------------------------------------
+// INPUT
+//------------------------------------------------------------
+let keys = {};
+window.addEventListener("keydown", e=> keys[e.key] = true);
+window.addEventListener("keyup",   e=> keys[e.key] = false);
+
+//------------------------------------------------------------
+// UPDATE LOOP
+//------------------------------------------------------------
+function update(){
+  let dx = 0, dy = 0;
+  if(keys["ArrowUp"] || keys["w"]) dy = -1;
+  if(keys["ArrowDown"] || keys["s"]) dy = 1;
+  if(keys["ArrowLeft"] || keys["a"]) dx = -1;
+  if(keys["ArrowRight"]|| keys["d"]) dx = 1;
+
+  if(dx !== 0 || dy !== 0){
+    player.px += dx * player.speed;
+    player.py += dy * player.speed;
+    player.x = Math.floor(player.px / TILE_SIZE);
+    player.y = Math.floor(player.py / TILE_SIZE);
+  }
+}
+
+//------------------------------------------------------------
+// DRAW TILE
+//------------------------------------------------------------
+function drawTile(s, i, dx, dy){
+  const sheet = loadedSheets[s];
+  const cols = TILESETS[s].columns;
+
+  const sx = (i % cols) * TILE_SIZE;
+  const sy = Math.floor(i / cols) * TILE_SIZE;
+
+  ctx.drawImage(sheet, sx, sy, TILE_SIZE, TILE_SIZE, dx, dy, TILE_SIZE, TILE_SIZE);
+}
+
+//------------------------------------------------------------
+// RENDER
+//------------------------------------------------------------
+function render(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // camera centers on player
+  const camX = player.px - canvas.width/2 + TILE_SIZE/2;
+  const camY = player.py - canvas.height/2 + TILE_SIZE/2;
+
+  const startX = Math.floor(camX / TILE_SIZE);
+  const startY = Math.floor(camY / TILE_SIZE);
+  const endX = startX + Math.ceil(canvas.width / TILE_SIZE) + 2;
+  const endY = startY + Math.ceil(canvas.height / TILE_SIZE) + 2;
+
+  for(let y = startY; y < endY; y++){
+    for(let x = startX; x < endX; x++){
+      if(x<0 || y<0 || x>=MAP_W || y>=MAP_H) continue;
+      const t = map[y*MAP_W + x];
+      drawTile(t.s, t.i, x*TILE_SIZE - camX, y*TILE_SIZE - camY);
+    }
+  }
+
+  // draw player
+  ctx.fillStyle = "#ff0";
+  ctx.fillRect(canvas.width/2 - TILE_SIZE/2, canvas.height/2 - TILE_SIZE/2, TILE_SIZE, TILE_SIZE);
+}
+
+//------------------------------------------------------------
+// GAME LOOP
+//------------------------------------------------------------
+function loop(){ update(); render(); requestAnimationFrame(loop); }
+
+//------------------------------------------------------------
+// START
+//------------------------------------------------------------
+loadTilesheets(() => {
+  console.log("All tiles loaded.");
+  requestAnimationFrame(loop);
+});
+</script>
+</body>
+</html>
